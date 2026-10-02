@@ -15,6 +15,8 @@ import { AuthInfo, Credentials } from '../../request/common/request.js';
 import { IPartsSplash } from '../../theme/common/themeService.js';
 import { IColorScheme, IOpenedAuxiliaryWindow, IOpenedMainWindow, IOpenEmptyWindowOptions, IOpenWindowOptions, IPoint, IRectangle, IWindowOpenable } from '../../window/common/window.js';
 
+import type { ReviewAnimationCreate, ReviewAnimationCommand, ReviewAnimationEvent } from '../../../review/common/reviewProtocol.js';
+
 export interface IClipboardCapturePage {
 	html: string;
 	styles: { href?: string; css?: string }[];
@@ -255,6 +257,11 @@ export interface ICommonNativeHostService {
 	getOSColorScheme(): Promise<IColorScheme>;
 
 	hasWSLFeatureInstalled(): Promise<boolean>;
+
+	readonly onDidAnimationEvent: Event<ReviewAnimationEvent>;
+	createAnimation(source: ReviewAnimationCreate): Promise<string>;
+	commandAnimation(id: string, command: ReviewAnimationCommand): Promise<void>;
+	destroyAnimation(id: string): Promise<void>;
 
 	// Screenshots
 	getScreenshot(rect?: IRectangle): Promise<VSBuffer | undefined>;

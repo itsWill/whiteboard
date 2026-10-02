@@ -23,6 +23,7 @@ import { useCanvasScrollLock } from "./use-canvas-scroll-lock";
  */
 export function DiagramTourOverlay({
   flow = false,
+  open = true,
   tour,
   activeAnchor,
   revealRequest,
@@ -32,6 +33,8 @@ export function DiagramTourOverlay({
 }: {
   /** A flow keeps its stage, stacked over the panel, when the canvas is narrow. */
   flow?: boolean;
+  /** Hide without disposing loaded editors. */
+  open?: boolean;
   tour: GuidedTour;
   activeAnchor: string;
   revealRequest: number;
@@ -48,6 +51,7 @@ export function DiagramTourOverlay({
   // Here, not in the diagram that opens the tour: each resize step re-renders
   // only the overlay, and the stage it was handed stays put.
   const paneResize = useRightPanelResize({
+    active: open,
     stateKey: "diagram-tour-pane-width",
     defaultWidth: 594,
     minWidth: 360,
@@ -63,6 +67,7 @@ export function DiagramTourOverlay({
   // forwards to style.setProperty; the CSSProperties typings only omit custom
   // names.
   const overlayStyle = {
+    display: open ? undefined : "none",
     "--diagram-tour-pane-width": `${paneResize.width}px`,
   } as CSSProperties;
 
@@ -75,6 +80,7 @@ export function DiagramTourOverlay({
         styles.overlay,
         flow && styles.flowOverlay,
       )}
+      inert={!open}
       role="dialog"
       aria-modal="true"
       aria-label={`${tour.title ?? "Guided"} tour`}
@@ -93,6 +99,7 @@ export function DiagramTourOverlay({
       />
       <div {...stylex.props(styles.panel)}>
         <GuidedTourPanel
+          open={open}
           tour={tour}
           activeAnchor={activeAnchor}
           revealRequest={revealRequest}

@@ -164,6 +164,7 @@ export class ReviewCanvasEditorPane extends EditorPane {
 	private readyInput: ReviewCanvasEditorInput | undefined;
 	private assetsPromise: Promise<ReviewCanvasAssetsModule> | null = null;
 	private readonly modelSubscription = this._register(new MutableDisposable());
+	private readonly animationInputLifetime = this._register(new MutableDisposable());
 	private readonly inlineEditors: ReviewEmbeddedEditors;
 	private readonly diffViews: ReviewDiffViewService;
 	private readonly sessionTelemetry: ReviewSessionTelemetry;
@@ -379,6 +380,14 @@ export class ReviewCanvasEditorPane extends EditorPane {
 				const [connection, assets] = await Promise.all([this.desktopConnection.getConnection(), this.loadAssets()]);
 				if (generation !== this.loadGeneration || token.isCancellationRequested) return;
 				this.renderedInput = input;
+				this.animationInputLifetime.value = input.onWillDispose(() => {
+					if (this.renderedInput !== input) return;
+					// A hidden board keeps its renderer; a closed board starts fresh next time.
+					this.canvas.clear();
+					this.apiContent = undefined;
+					this.readyInput = undefined;
+					this.renderedInput = undefined;
+				});
 				this.setCanvasState("active", reviewId);
 				this.sessionTelemetry.start(reviewId);
 				void this.apiCatalog
@@ -442,6 +451,18 @@ export class ReviewCanvasEditorPane extends EditorPane {
 								assets,
 							),
 							request: requestReviewApi,
+							animations: {
+								inlineEditors: (view) => this.apiSource.canvas(() => view, this.inlineEditors, this.diffViews, false).inlineEditors,
+								openSource: (location, range) => this.apiSource.open(location, range),
+								create: (source) => this.nativeHostService.createAnimation(source),
+								command: (id, command) => this.nativeHostService.commandAnimation(id, command),
+								destroy: (id) => this.nativeHostService.destroyAnimation(id),
+								subscribe: (listener) => this.nativeHostService.onDidAnimationEvent(listener),
+								autoplay: () => this.configurationService.getValue<boolean>('review.animations.autoplay') !== false,
+								onDidChangeAutoplay: (listener) => this.configurationService.onDidChangeConfiguration(event => {
+									if (event.affectsConfiguration('review.animations.autoplay')) listener(this.configurationService.getValue<boolean>('review.animations.autoplay') !== false);
+								}),
+							},
 							capturePageImage: (page) => this.nativeHostService.captureClipboardPage(page),
 							post: async (request) => {
 								if (request.name === "openSourceTree") {
@@ -760,6 +781,11 @@ export class ReviewCanvasEditorPane extends EditorPane {
 		// the row then shows the default, off.
 		const scratchpadEnabled = await this.desktopConnection.readScratchpadEnabled().catch(() => false);
 		return {
+			animationAutoplay: this.configurationService.getValue<boolean>('review.animations.autoplay') !== false,
+			setAnimationAutoplay: async (enabled) => {
+				await this.configurationService.updateValue('review.animations.autoplay', enabled, ConfigurationTarget.USER);
+				return enabled;
+			},
 			telemetryEnabled: this.currentTelemetryEnabled(),
 			setTelemetryEnabled: async (enabled) => {
 				this.reviewTelemetryService.capture("setting_changed", {

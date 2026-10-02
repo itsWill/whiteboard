@@ -52,6 +52,8 @@ import { randomPath } from '../../../base/common/extpath.js';
 import { CancellationToken, CancellationTokenSource } from '../../../base/common/cancellation.js';
 
 import { DiagramCapture } from './diagramCapture.js';
+import { AnimationHost } from '../../../review/electron-main/animation/animationHost.js';
+import type { ReviewAnimationCreate, ReviewAnimationCommand } from '../../../review/common/reviewProtocol.js';
 
 export interface INativeHostMainService extends AddFirstParameterToFunctions<ICommonNativeHostService, Promise<unknown> /* only methods, not events */, number | undefined /* window ID */> { }
 
@@ -60,6 +62,9 @@ export const INativeHostMainService = createDecorator<INativeHostMainService>('n
 export class NativeHostMainService extends Disposable implements INativeHostMainService {
 
 	declare readonly _serviceBrand: undefined;
+
+	private readonly animationHost = this._register(new AnimationHost());
+	readonly onDidAnimationEvent = this.animationHost.onEvent;
 
 	private readonly diagramCapture = this._register(new DiagramCapture());
 
@@ -1044,6 +1049,22 @@ export class NativeHostMainService extends Disposable implements INativeHostMain
 
 	async writeClipboardFindText(windowId: number | undefined, text: string): Promise<void> {
 		return clipboard.writeFindText(text);
+	}
+
+	async createAnimation(windowId: number | undefined, source: ReviewAnimationCreate): Promise<string> {
+		const owner = this.windowById(undefined, windowId)?.win;
+		if (!owner || owner.isDestroyed()) throw new Error('Whiteboard window is unavailable.');
+		return this.animationHost.create(owner, source);
+	}
+
+	async commandAnimation(windowId: number | undefined, id: string, command: ReviewAnimationCommand): Promise<void> {
+		const owner = this.windowById(undefined, windowId)?.win;
+		if (owner) await this.animationHost.command(owner, id, command);
+	}
+
+	async destroyAnimation(windowId: number | undefined, id: string): Promise<void> {
+		const owner = this.windowById(undefined, windowId)?.win;
+		if (owner) this.animationHost.destroy(owner, id);
 	}
 
 	async captureClipboardPage(windowId: number | undefined, page: IClipboardCapturePage): Promise<void> {

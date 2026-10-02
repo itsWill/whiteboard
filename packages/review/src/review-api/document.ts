@@ -279,6 +279,16 @@ function documentReferences(
         },
       );
 
+    if (element.type === "animation")
+      return element.bindings.flatMap((binding) =>
+        binding.links.map((link, index) => ({
+          id: `${element.id}:${binding.key}:${index}`,
+          source: link.source,
+          label: link.label,
+          peek: true,
+        })),
+      );
+
     if (element.type === "flow_diagram")
       return element.nodes.flatMap((node) =>
         node.attachments.flatMap((attachment, index) =>

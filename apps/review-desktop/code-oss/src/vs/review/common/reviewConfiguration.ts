@@ -30,6 +30,10 @@ configurationRegistry.registerConfiguration({
 	type: 'object',
 	scope: ConfigurationScope.APPLICATION,
 	properties: {
+		['review.animations.autoplay']: {
+			type: 'boolean', default: true,
+			description: localize('review.animations.autoplay', "Automatically play visible animations, one at a time."),
+		},
 		[REVIEW_KEYMAP_SETTING]: {
 			type: 'string',
 			enum: [...REVIEW_KEYMAPS],

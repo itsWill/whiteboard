@@ -333,7 +333,90 @@ export interface ReviewDiagramCapturePage {
   background: string;
 }
 
+/** Desktop-only animation transport. The guest receives none of this bridge. */
+export interface ReviewAnimationSource {
+  html: string;
+  css: string;
+  js: string;
+  keys: string[];
+}
+
+export interface ReviewAnimationTheme {
+  background: string;
+  foreground: string;
+  muted: string;
+  accent: string;
+  border: string;
+  font: string;
+  dark: boolean;
+}
+
+export interface ReviewAnimationCreate extends ReviewAnimationSource {
+  width: number;
+  height: number;
+  pixelRatio: number;
+  theme: ReviewAnimationTheme;
+}
+
+export interface ReviewAnimationRegion {
+  key: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export type ReviewAnimationCommand =
+  | { type: "play" | "pause" }
+  | { type: "resize"; width: number; height: number }
+  | { type: "theme"; theme: ReviewAnimationTheme }
+  | {
+      type: "input";
+      event: {
+        type:
+          | "mouseMove"
+          | "mouseDown"
+          | "mouseUp"
+          | "mouseWheel"
+          | "keyDown"
+          | "keyUp"
+          | "char";
+        x?: number;
+        y?: number;
+        button?: "left" | "middle" | "right";
+        deltaX?: number;
+        deltaY?: number;
+        keyCode?: string;
+        modifiers?: string[];
+      };
+    };
+
+export type ReviewAnimationEvent = {
+  id: string;
+} & (
+  | { type: "frame"; image: string }
+  | { type: "selected"; key: string }
+  | { type: "regions"; regions: ReviewAnimationRegion[] }
+  | { type: "paused" }
+  | { type: "error"; message: string }
+);
+
+export interface ReviewAnimationBridge {
+  inlineEditors(view: ReviewSourceView): ReviewInlineEditorFactory;
+  openSource(
+    location: ReviewApiSourceLocation,
+    range: { startLine: number; endLine: number },
+  ): Promise<void>;
+  create(source: ReviewAnimationCreate): Promise<string>;
+  command(id: string, command: ReviewAnimationCommand): Promise<void>;
+  destroy(id: string): Promise<void>;
+  subscribe(listener: (event: ReviewAnimationEvent) => void): ReviewDisposable;
+  autoplay(): boolean;
+  onDidChangeAutoplay(listener: (enabled: boolean) => void): ReviewDisposable;
+}
+
 export interface ReviewCanvasBridge {
+  readonly animations?: ReviewAnimationBridge;
   readonly appSessionId?: string;
   readonly config: ReviewRuntimeConfig;
   readonly inlineEditors: ReviewInlineEditorFactory;
@@ -554,6 +637,8 @@ export interface ReviewDiffrConfigActions {
 }
 
 export interface ReviewCanvasSettingsContent {
+  animationAutoplay?: boolean;
+  setAnimationAutoplay?(enabled: boolean): Promise<boolean>;
   // Backed by the `review.telemetry.enabled` workbench setting, which the
   // review server and the CLI both read.
   telemetryEnabled: boolean;

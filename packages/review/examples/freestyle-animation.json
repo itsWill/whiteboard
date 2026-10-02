@@ -1,0 +1,130 @@
+{
+  "type": "animation",
+  "title": "How a Whiteboard animation works",
+  "description": "Click any box to pause and explore its code. Play resumes; Restart loads the latest saved animation. Shared Whiteboard controls stay consistent across every animation.",
+  "height": 370,
+  "runtimeVersion": 1,
+  "html": "<svg viewBox=\"0 0 900 360\" aria-label=\"Animation architecture\"><defs><marker id=\"arrow\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\" markerWidth=\"6\" markerHeight=\"6\" orient=\"auto-start-reverse\"><path d=\"M0 0 L10 5 L0 10z\" fill=\"var(--muted)\"/></marker></defs>\n<g class=\"routes\"><path id=\"route0\" d=\"M355 90H545\"/><path id=\"route1\" d=\"M690 130V230\"/><path id=\"route2\" d=\"M545 270H355\"/><path id=\"route3\" d=\"M210 230V130\"/></g>\n<g class=\"captions\"><text x=\"450\" y=\"70\">save</text><text x=\"710\" y=\"185\">Play</text><text x=\"450\" y=\"255\">pixels + selection</text><text x=\"188\" y=\"185\" text-anchor=\"end\">Restart</text></g>\n<g class=\"node\" data-animation-key=\"Agent source\"><rect x=\"65\" y=\"50\" width=\"290\" height=\"80\" rx=\"12\"/><text x=\"210\" y=\"82\" class=\"title\">Agent source</text><text x=\"210\" y=\"108\">HTML · CSS · JavaScript</text></g>\n<g class=\"node\" data-animation-key=\"Saved block\"><rect x=\"545\" y=\"50\" width=\"290\" height=\"80\" rx=\"12\"/><text x=\"690\" y=\"82\" class=\"title\">Saved block</text><text x=\"690\" y=\"108\">versioned with this board</text></g>\n<g class=\"node sandbox\" data-animation-key=\"Isolated renderer\"><rect x=\"545\" y=\"230\" width=\"290\" height=\"80\" rx=\"12\"/><text x=\"690\" y=\"262\" class=\"title\">Isolated renderer</text><text x=\"690\" y=\"288\">no network · no host access</text></g>\n<g class=\"node\" data-animation-key=\"Whiteboard controls\"><rect x=\"65\" y=\"230\" width=\"290\" height=\"80\" rx=\"12\"/><text x=\"210\" y=\"262\" class=\"title\">Whiteboard controls</text><text x=\"210\" y=\"288\">Play · Pause · Restart</text></g>\n<circle id=\"packet\" r=\"7\" fill=\"var(--accent)\"/><text id=\"status\" x=\"450\" y=\"345\" text-anchor=\"middle\"></text></svg>",
+  "css": "#stage {height:100%;display:grid;place-items:center;padding:8px;} svg {width:100%;max-height:100%;font-family:var(--font);} text {fill:var(--foreground);font-size:14px;text-anchor:middle;} .title {font-size:18px;font-weight:600;} .node rect {fill:var(--background);stroke:var(--border);stroke-width:1.5;} .node:hover rect,[data-animation-selected] rect {stroke:var(--accent);stroke-width:2.5;} .sandbox rect {stroke-dasharray:5 4;} .routes path {fill:none;stroke:var(--muted);stroke-width:1.5;marker-end:url(#arrow);} .captions text,#status {fill:var(--muted);font-size:12px;} [data-animation-selected] {outline:none;}",
+  "js": "const paths = Array.from({length:4}, (_, index) => document.querySelector('#route' + index));\nconst packet = document.querySelector('#packet');\nconst status = document.querySelector('#status');\nconst messages = ['1 / 4  Agent saves separate HTML, CSS and JavaScript fields.', '2 / 4  Play creates a renderer used only by this animation.', '3 / 4  The renderer sends pixels and allowed object IDs back.', '4 / 4  Click any box to explore code; Restart loads the latest saved scene.'];\nlet previousStep = -1;\nanimation.onFrame(({elapsedMs}) => {\n  const phase = (elapsedMs / 2200) % 4;\n  const step = Math.floor(phase);\n  const progress = phase - step;\n  const point = paths[step].getPointAtLength(paths[step].getTotalLength() * progress);\n  packet.setAttribute('cx', point.x);\n  packet.setAttribute('cy', point.y);\n  if (step !== previousStep) { status.textContent = messages[step]; previousStep = step; }\n});",
+  "bindings": [
+    {
+      "key": "Agent source",
+      "links": [
+        {
+          "label": "Animation fields",
+          "source": {
+            "file": "packages/review/src/review-api/blocks/animation.ts",
+            "start": {
+              "side": "head",
+              "line": 7
+            },
+            "end": {
+              "side": "head",
+              "line": 40
+            }
+          }
+        }
+      ]
+    },
+    {
+      "key": "Saved block",
+      "links": [
+        {
+          "label": "Source and control contract",
+          "source": {
+            "file": "packages/review-protocol/src/contracts.ts",
+            "start": {
+              "side": "head",
+              "line": 328
+            },
+            "end": {
+              "side": "head",
+              "line": 415
+            }
+          }
+        }
+      ]
+    },
+    {
+      "key": "Isolated renderer",
+      "links": [
+        {
+          "label": "Offline sandbox",
+          "source": {
+            "file": "apps/review-desktop/code-oss/src/vs/review/electron-main/animation/animationHost.ts",
+            "start": {
+              "side": "head",
+              "line": 34
+            },
+            "end": {
+              "side": "head",
+              "line": 81
+            }
+          }
+        },
+        {
+          "label": "Managed clock",
+          "source": {
+            "file": "apps/review-desktop/code-oss/src/vs/review/electron-main/animation/animationDocument.ts",
+            "start": {
+              "side": "head",
+              "line": 50
+            },
+            "end": {
+              "side": "head",
+              "line": 98
+            }
+          }
+        }
+      ]
+    },
+    {
+      "key": "Whiteboard controls",
+      "links": [
+        {
+          "label": "Shared playback and exploration controls",
+          "source": {
+            "file": "packages/review/app/src/diagram-controls.tsx",
+            "start": {
+              "side": "head",
+              "line": 7
+            },
+            "end": {
+              "side": "head",
+              "line": 54
+            }
+          }
+        },
+        {
+          "label": "Restart lifecycle",
+          "source": {
+            "file": "packages/review/app/src/animation-block.tsx",
+            "start": {
+              "side": "head",
+              "line": 99
+            },
+            "end": {
+              "side": "head",
+              "line": 188
+            }
+          }
+        },
+        {
+          "label": "Code explorer",
+          "source": {
+            "file": "packages/review/app/src/animation-explorer.tsx",
+            "start": {
+              "side": "head",
+              "line": 21
+            },
+            "end": {
+              "side": "head",
+              "line": 96
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

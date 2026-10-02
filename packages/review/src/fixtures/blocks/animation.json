@@ -1,0 +1,11 @@
+[
+  {
+    "id": "animation-1",
+    "type": "animation",
+    "title": "Request animation",
+    "description": "A packet moves between services.",
+    "html": "<div id=\"packet\">Request</div>",
+    "css": "#packet { color: var(--accent); }",
+    "js": "const packet = document.querySelector(\"#packet\"); animation.onFrame(({elapsedMs}) => packet.style.transform = `translateX(${elapsedMs % 200}px)`);"
+  }
+]

@@ -12,6 +12,7 @@ export function blockSectionSummary(children: Block[]): ReviewSectionSummary {
       case "callout":
         for (const child of block.children) walk(child);
         break;
+      case "animation":
       case "sequence":
       case "database_lens":
       case "call_stack_diff":

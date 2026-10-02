@@ -149,6 +149,22 @@ export function documentText(
         detail(`${element.traceId}, event ${element.eventId}`);
         detail(element.text);
         break;
+      case "animation":
+        detail(element.description);
+
+        for (const binding of element.bindings)
+          for (const link of binding.links)
+            detail(
+              `${binding.key}: ${link.label} (${sourceText(link.source)})`,
+            );
+
+        if (detailed) {
+          detail(`HTML: ${element.html}`);
+          detail(`CSS: ${element.css}`);
+          detail(`JavaScript: ${element.js}`);
+        }
+
+        break;
       case "flow_diagram":
         if (element.description) detail(element.description);
 

@@ -81,6 +81,7 @@ export interface IReviewApiSourceService {
 		view: () => ReviewSourceView,
 		inline: ReviewEmbeddedEditors,
 		diff: ReviewDiffViewService,
+		structural?: boolean,
 	): {
 		inlineEditors: ReviewInlineEditorFactory;
 		diffView: ReviewDiffViewFactory;
@@ -242,7 +243,7 @@ export class ReviewApiSourceService extends Disposable implements IReviewApiSour
 		}));
 	}
 
-	canvas(view: () => ReviewSourceView, inline: ReviewEmbeddedEditors, diff: ReviewDiffViewService) {
+	canvas(view: () => ReviewSourceView, inline: ReviewEmbeddedEditors, diff: ReviewDiffViewService, structural = true) {
 		const comparisonGeneration = diff.comparisonGeneration;
 		// A live checkout's saves change its generation; each comparison keeps only the latest.
 		const lists = new Map<string, { generation?: string; list: Promise<readonly ReviewDiffFileWire[]> }>();
@@ -269,7 +270,7 @@ export class ReviewApiSourceService extends Disposable implements IReviewApiSour
 					range.file === (range.side === "base" ? file.previousPath ?? file.path : file.path))) : orderReviewDiffFiles(comparisonFiles);
 
 				return {
-					session: openComparison(current),
+					session: structural ? openComparison(current) : undefined,
 					stateKey: JSON.stringify([current.reviewId, reviewSourceQuery(current)]),
 					sourceUri: URI.from({ scheme: "review-api-diff", authority: current.reviewId, path: `/${current.version}/${current.generation ?? ""}`, query: comparisonQuery(current) }),
 					entries: await Promise.all(entries.map(async file => {

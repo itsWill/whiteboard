@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { animation } from "./animation.js";
 import { call_stack_diff } from "./call_stack_diff.js";
 import { type CalloutBlock, callout } from "./callout.js";
 import { code } from "./code.js";
@@ -18,6 +19,7 @@ import { type TutorialBlock, tutorial } from "./tutorial.js";
 
 /** Leaf kinds share one discriminated union so unknown types read as they always have. */
 export const leafSchema = z.discriminatedUnion("type", [
+  animation.schema,
   markdown.schema,
   code.schema,
   divider.schema,
@@ -43,6 +45,7 @@ export type Definitions = {
 
 /** Every block kind, keyed by type. A kind without a definition is a compile error. */
 export const blocks = {
+  animation,
   markdown,
   code,
   divider,

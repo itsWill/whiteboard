@@ -70,6 +70,7 @@ const TOUR_ACTIVE_TOP_SLACK_PX = 18;
  * document reflows next to it instead of being overlaid.
  */
 function ReviewPanelFrame({
+  open = true,
   label,
   title,
   onClose,
@@ -84,6 +85,7 @@ function ReviewPanelFrame({
   tray = false,
   children,
 }: {
+  open?: boolean;
   label: string;
   title?: string;
   onClose: () => void;
@@ -110,6 +112,8 @@ function ReviewPanelFrame({
   });
 
   useEffect(() => {
+    if (!open) return;
+
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || !appRef?.current) return;
       event.preventDefault();
@@ -119,7 +123,7 @@ function ReviewPanelFrame({
     document.addEventListener("keydown", closeOnEscape);
 
     return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [appRef, onClose]);
+  }, [appRef, onClose, open]);
 
   // SAFETY: `--side-panel-bottom-fraction` is a CSS custom property, which
   // React forwards to style.setProperty; the CSSProperties typings only omit
@@ -806,6 +810,7 @@ function CodeReviewPeekPanel({
 }
 
 export function GuidedTourPanel({
+  open = true,
   tour,
   activeAnchor,
   revealRequest,
@@ -813,6 +818,7 @@ export function GuidedTourPanel({
   onClose,
   docked = false,
 }: {
+  open?: boolean;
   tour: GuidedTour;
   activeAnchor: string;
   revealRequest: number;
@@ -890,7 +896,7 @@ export function GuidedTourPanel({
   useEffect(() => {
     const scroller = scrollerRef.current;
 
-    if (!scroller) return;
+    if (!open || !scroller) return;
     const lastStop = tour.stops[tour.stops.length - 1];
 
     if (!lastStop) return;
@@ -926,7 +932,7 @@ export function GuidedTourPanel({
     if (content) observer.observe(content);
 
     return () => observer.disconnect();
-  }, [tour]);
+  }, [open, tour]);
 
   useEffect(() => {
     if (
@@ -942,14 +948,14 @@ export function GuidedTourPanel({
   }, [activeIndex, session, tour]);
 
   useEffect(() => {
-    if (handledRevealRequestRef.current === revealRequest) return;
-    handledRevealRequestRef.current = revealRequest;
+    if (!open || handledRevealRequestRef.current === revealRequest) return;
     const scroller = scrollerRef.current;
     const section = sectionRefs.current.get(activeAnchor);
 
     if (!section || !scroller) return;
 
     const frame = requestAnimationFrame(() => {
+      handledRevealRequestRef.current = revealRequest;
       const scrollerTop = scroller.getBoundingClientRect().top;
       const sectionTop = section.getBoundingClientRect().top;
       // The tail's active line.
@@ -963,7 +969,7 @@ export function GuidedTourPanel({
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [activeAnchor, revealRequest]);
+  }, [activeAnchor, open, revealRequest]);
 
   const displayIndex = Math.max(0, activeIndex);
   const lastIndex = tour.stops.length - 1;
@@ -981,6 +987,7 @@ export function GuidedTourPanel({
   // The stop being read follows the shared scroll-tracking rule (see
   // scroll-active-tracking.ts), the same one the contents rail uses.
   const syncActiveStopToScroll = () => {
+    if (!open || handledRevealRequestRef.current !== revealRequest) return;
     setHasScrolled(true);
     const scroller = scrollerRef.current;
 
@@ -1005,6 +1012,7 @@ export function GuidedTourPanel({
 
   return (
     <ReviewPanelFrame
+      open={open}
       tour
       docked={docked}
       label="Tour"

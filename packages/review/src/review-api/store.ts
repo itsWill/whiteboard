@@ -62,6 +62,7 @@ const reviewId = z.string().min(1);
 export const SCRATCHPAD_ID = SCRATCHPAD_REVIEW_ID;
 
 const DIAGRAM_TYPES = new Set([
+  "animation",
   "sequence",
   "flow_diagram",
   "call_stack_diff",

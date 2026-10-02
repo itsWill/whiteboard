@@ -71,6 +71,11 @@ export function SettingsPage({
   const [theme, setTheme] = useState(settings.theme);
   const [keymap, setKeymap] = useState(settings.keymap);
   const [ctrlTab, setCtrlTab] = useState(settings.ctrlTab);
+
+  const [animationAutoplay, setAnimationAutoplay] = useState(
+    settings.animationAutoplay !== false,
+  );
+
   const [documentWidth, setDocumentWidth] = useState(settings.documentWidth);
 
   const [readyNotification, setReadyNotification] = useState(
@@ -203,6 +208,32 @@ export function SettingsPage({
           </Section>
 
           <Section label="Editor">
+            {settings.setAnimationAutoplay && (
+              <Row
+                label="Autoplay animations"
+                description="Play visible animations one at a time. Reduced motion uses manual playback."
+              >
+                <label
+                  {...stylex.props(styles.toggle)}
+                  aria-label="Autoplay animations"
+                >
+                  <input
+                    {...stylex.props(styles.checkbox)}
+                    type="checkbox"
+                    checked={animationAutoplay}
+                    disabled={busy !== null}
+                    onChange={(event) => {
+                      const enabled = event.target.checked;
+                      void run(
+                        "animation-autoplay",
+                        () => settings.setAnimationAutoplay!(enabled),
+                        setAnimationAutoplay,
+                      );
+                    }}
+                  />
+                </label>
+              </Row>
+            )}
             <Row label="Theme" description="How Whiteboard looks.">
               <Choice
                 label="Theme"
