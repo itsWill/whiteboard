@@ -1,3 +1,4 @@
+import './reviewDiffSyntax.js';
 import { orderReviewDiffFiles } from "../common/reviewChangedFilesModel.js";
 import { CancellationToken } from "../../base/common/cancellation.js";
 import { Range } from "../../editor/common/core/range.js";
@@ -15,7 +16,7 @@ import { lensRanges, withLens } from "./reviewLens.js";
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter } from "../../base/common/event.js";
-import { Disposable, DisposableStore, isDisposable } from "../../base/common/lifecycle.js";
+import { Disposable, DisposableStore, isDisposable, toDisposable } from "../../base/common/lifecycle.js";
 import type { URI } from "../../base/common/uri.js";
 import type { ICodeEditor } from "../../editor/browser/editorBrowser.js";
 import type { IMultiDiffEditorViewState } from "../../editor/browser/widget/multiDiffEditor/multiDiffEditorWidgetImpl.js";
@@ -29,6 +30,9 @@ import type {
 	ReviewDiffViewHandle,
 	ReviewDiffViewSpec,
 } from "../common/reviewProtocol.js";
+import { ServiceCollection } from "../../platform/instantiation/common/serviceCollection.js";
+import { IThemeService } from "../../platform/theme/common/themeService.js";
+import { ReviewDiffTheme } from "./reviewDiffTheme.js";
 import { ReviewDiffLayoutSetting } from "./reviewDiffLayout.js";
 import { markReviewEmbeddedEditor } from "./reviewEmbeddedNavigation.js";
 import { ReviewFilesDiffView, ReviewFilesEditorInput, type ReviewFilesEditorEntry } from "./reviewFilesDiffView.js";
@@ -305,7 +309,24 @@ class DiffViewController extends Disposable implements ReviewDiffViewHandle {
 				const byFile = new Map(selected.map(entry => [entry.file, entry]));
 				selected = orderReviewDiffFiles([...byFile.keys()]).map(file => byFile.get(file)!);
 			}
-			const instantiation = withLens(structural.instantiation, selected, lens, store, () => this.progress, this.progressChanged.event);
+			let instantiation = withLens(structural.instantiation, selected, lens, store, () => this.progress, this.progressChanged.event);
+			let overflow = this.overflowWidgetsDomNode;
+			// Hovers live outside the canvas. Give this diff its own host so its
+			// colors stay independent of regular editors and their hovers.
+			if (overflow) {
+				const node = overflow.ownerDocument.createElement('div');
+				node.className = 'monaco-editor';
+				overflow.appendChild(node);
+				store.add(toDisposable(() => node.remove()));
+				overflow = node;
+			}
+			const containers = [this.spec.container];
+			if (this.spec.fileTreeContainer) containers.push(this.spec.fileTreeContainer);
+			if (overflow) containers.push(overflow);
+			const theme = store.add(instantiation.createInstance(ReviewDiffTheme, containers));
+			await theme.update();
+			if (this.disposed) return;
+			instantiation = store.add(instantiation.createChild(new ServiceCollection([IThemeService, theme])));
 			// The input owns the text-model references its view model resolves, so
 			// this handle disposes it alongside the view.
 			const input = store.add(instantiation.createInstance(ReviewFilesEditorInput, sourceUri, selected,
@@ -314,7 +335,7 @@ class DiffViewController extends Disposable implements ReviewDiffViewHandle {
 				instantiation.createInstance(
 					ReviewFilesDiffView,
 					this.spec.container,
-					this.overflowWidgetsDomNode,
+					overflow,
 					this.diffLayout,
 					this.spec.fileTreeContainer, this.spec.onToggleViewed, this.spec.onToggleSection, this.spec.document,
 				),

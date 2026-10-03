@@ -20,7 +20,7 @@
 import { localize } from '../../nls.js';
 import { Registry } from '../../platform/registry/common/platform.js';
 import { ConfigurationScope, Extensions, type IConfigurationRegistry } from '../../platform/configuration/common/configurationRegistry.js';
-import { REVIEW_KEYMAPS, REVIEW_KEYMAP_SETTING, REVIEW_SOFTWARE_MAP_SETTING, REVIEW_STRUCTURAL_DIFF_SETTING, REVIEW_TELEMETRY_SETTING, curatedExtensionConfigurationDefaults, reviewConfigurationDefaults } from './reviewConfigurationDefaults.js';
+import { REVIEW_DIFF_THEME_SETTING, REVIEW_KEYMAPS, REVIEW_KEYMAP_SETTING, REVIEW_SOFTWARE_MAP_SETTING, REVIEW_STRUCTURAL_DIFF_SETTING, REVIEW_TELEMETRY_SETTING, curatedExtensionConfigurationDefaults, reviewConfigurationDefaults } from './reviewConfigurationDefaults.js';
 
 const configurationRegistry = Registry.as<IConfigurationRegistry>(Extensions.Configuration);
 
@@ -30,6 +30,11 @@ configurationRegistry.registerConfiguration({
 	type: 'object',
 	scope: ConfigurationScope.APPLICATION,
 	properties: {
+		[REVIEW_DIFF_THEME_SETTING]: {
+			type: ['string', 'null'],
+			default: null,
+			description: localize('review.diff.theme', "Installed color theme for all diffs, including inline diffs. Defaults to the editor theme at startup."),
+		},
 		[REVIEW_KEYMAP_SETTING]: {
 			type: 'string',
 			enum: [...REVIEW_KEYMAPS],

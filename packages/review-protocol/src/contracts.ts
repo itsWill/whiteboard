@@ -398,6 +398,11 @@ export const REVIEW_THEME_CHOICES = ["dark", "light", "system"] as const;
 
 export type ReviewThemeChoice = (typeof REVIEW_THEME_CHOICES)[number];
 
+export interface ReviewDiffThemeChoice {
+  id: string;
+  label: string;
+}
+
 export const REVIEW_KEYMAP_CHOICES = ["none", "vim", "emacs"] as const;
 
 export type ReviewKeymapChoice = (typeof REVIEW_KEYMAP_CHOICES)[number];
@@ -503,6 +508,8 @@ export interface ReviewCanvasSettingsContent {
   setTelemetryEnabled(enabled: boolean): Promise<boolean>;
   theme: ReviewThemeChoice;
   setTheme(choice: ReviewThemeChoice): Promise<ReviewThemeChoice>;
+  diffTheme: ReviewDiffThemeChoice;
+  pickDiffTheme(): Promise<ReviewDiffThemeChoice>;
   keymap: ReviewKeymapChoice;
   // A keymap only takes effect after the extension host restarts, so the
   // workbench offers the window reload. The page never forces one.

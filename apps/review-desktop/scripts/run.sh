@@ -51,7 +51,13 @@ source "$APP_DIR/scripts/freshness.sh"
 
 REVIEW_USER_HOME="$(node -p "require('node:os').homedir()")"
 REVIEW_BASE_HOME="${DEV_REVIEW_HOME:-$REVIEW_USER_HOME/.dev}"
-STATE_ROOT="${DEV_FAST_REVIEW_DESKTOP_STATE_ROOT:-$REVIEW_BASE_HOME/review-desktop/state}"
+# A profile is also the main-process instance identity. Keep development
+# checkouts independent so launching one worktree cannot activate another.
+DEFAULT_STATE_ROOT="$CHECKOUT/.build/dev-state"
+if [[ -n "$PACKAGED_ROOT" ]]; then
+  DEFAULT_STATE_ROOT="$REVIEW_BASE_HOME/review-desktop/state"
+fi
+STATE_ROOT="${DEV_FAST_REVIEW_DESKTOP_STATE_ROOT:-$DEFAULT_STATE_ROOT}"
 mkdir -p "$STATE_ROOT/user-data" "$STATE_ROOT/extensions" "$STATE_ROOT/logs"
 
 # Curated extensions are downloaded, not committed. Materialize the selected
@@ -93,8 +99,12 @@ CODE_ARGS=(
   "--user-data-dir=$STATE_ROOT/user-data"
   "--extensions-dir=$STATE_ROOT/extensions"
 )
-if [[ -n "${DEV_FAST_REVIEW_SHARED_DATA_DIR:-}" ]]; then
-  CODE_ARGS+=("--shared-data-dir=$DEV_FAST_REVIEW_SHARED_DATA_DIR")
+SHARED_DATA_ROOT="${DEV_FAST_REVIEW_SHARED_DATA_DIR:-}"
+if [[ -z "$PACKAGED_ROOT" && -z "$SHARED_DATA_ROOT" ]]; then
+  SHARED_DATA_ROOT="$STATE_ROOT/shared-data"
+fi
+if [[ -n "$SHARED_DATA_ROOT" ]]; then
+  CODE_ARGS+=("--shared-data-dir=$SHARED_DATA_ROOT")
 fi
 if [[ -n "${DEV_FAST_REVIEW_REMOTE_DEBUGGING_PORT:-}" ]]; then
   CODE_ARGS+=(

@@ -24,6 +24,7 @@
 
 export const REVIEW_KEYMAP_SETTING = 'review.keymap';
 export const REVIEW_TELEMETRY_SETTING = 'review.telemetry.enabled';
+export const REVIEW_DIFF_THEME_SETTING = 'review.diff.theme';
 export const REVIEW_STRUCTURAL_DIFF_SETTING = 'review.experimental.structuralDiff.enabled';
 export const REVIEW_SOFTWARE_MAP_SETTING = 'review.experimental.softwareMap.enabled';
 export const REVIEW_KEYMAPS = ['none', 'vim', 'emacs'] as const;

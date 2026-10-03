@@ -26,6 +26,8 @@ import { IStorageService, StorageScope, StorageTarget } from "../../../../platfo
 import { ITelemetryService } from "../../../../platform/telemetry/common/telemetry.js";
 import { ColorScheme } from "../../../../platform/theme/common/theme.js";
 import { IThemeService } from "../../../../platform/theme/common/themeService.js";
+import { IWorkbenchThemeService } from "../../../../workbench/services/themes/common/workbenchThemeService.js";
+import { IQuickInputService } from "../../../../platform/quickinput/common/quickInput.js";
 import { Part } from "../../../../workbench/browser/part.js";
 import { EditorPane } from "../../../../workbench/browser/parts/editor/editorPane.js";
 import type {
@@ -87,7 +89,7 @@ import { IReviewTelemetryService } from "../../../services/reviewTelemetryServic
 
 import "../../media/review.css";
 import { ReviewSessionTelemetry } from "../../reviewSessionTelemetry.js";
-import { applyReviewThemeChoice, currentReviewThemeChoice } from "../../reviewThemeChoice.js";
+import { pickReviewDiffTheme, currentReviewDiffThemeChoice, applyReviewThemeChoice, currentReviewThemeChoice } from "../../reviewThemeChoice.js";
 import { ReviewCanvasEditorInput } from "./reviewCanvasEditorInput.js";
 
 interface ReviewCanvasAssetsModule extends ReviewCanvasModule {
@@ -158,7 +160,8 @@ export class ReviewCanvasEditorPane extends EditorPane {
 	constructor(
 		group: IEditorGroup,
 		@ITelemetryService telemetryService: ITelemetryService,
-		@IThemeService private readonly reviewThemeService: IThemeService,
+		@IWorkbenchThemeService private readonly reviewThemeService: IWorkbenchThemeService,
+		@IQuickInputService private readonly quickInputService: IQuickInputService,
 		@IStorageService private readonly storageService: IStorageService,
 		@IProductService private readonly productService: IProductService,
 		@IReviewDesktopConnectionService
@@ -185,6 +188,7 @@ export class ReviewCanvasEditorPane extends EditorPane {
 		@ILifecycleService lifecycleService: ILifecycleService,
 	) {
 		super(ReviewCanvasEditorPane.ID, group, telemetryService, reviewThemeService, storageService);
+		currentReviewDiffThemeChoice(configurationService, reviewThemeService);
 		this.sessionTelemetry = new ReviewSessionTelemetry((name, properties, context) =>
 			this.reviewTelemetryService.capture(name, properties, undefined, context),
 		);
@@ -754,6 +758,8 @@ export class ReviewCanvasEditorPane extends EditorPane {
 				await applyReviewThemeChoice(this.configurationService, choice);
 				return currentReviewThemeChoice(this.configurationService, this.reviewThemeService);
 			},
+			diffTheme: currentReviewDiffThemeChoice(this.configurationService, this.reviewThemeService, await this.reviewThemeService.getColorThemes()),
+			pickDiffTheme: () => pickReviewDiffTheme(this.configurationService, this.reviewThemeService, this.quickInputService),
 			keymap: this.currentKeymap(),
 			setKeymap: async (choice) => {
 				this.reviewTelemetryService.capture("setting_changed", {

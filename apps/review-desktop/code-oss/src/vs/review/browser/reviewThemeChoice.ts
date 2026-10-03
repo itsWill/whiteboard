@@ -4,7 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ConfigurationTarget, IConfigurationService } from '../../platform/configuration/common/configuration.js';
+import { REVIEW_DIFF_THEME_SETTING } from '../common/reviewConfigurationDefaults.js';
+import type { ReviewDiffThemeChoice } from '../common/reviewProtocol.js';
 import { ColorScheme } from '../../platform/theme/common/theme.js';
+import { IWorkbenchThemeService, type IWorkbenchColorTheme } from '../../workbench/services/themes/common/workbenchThemeService.js';
+import { IQuickInputService } from '../../platform/quickinput/common/quickInput.js';
 import { IThemeService } from '../../platform/theme/common/themeService.js';
 
 /**
@@ -54,4 +58,41 @@ export async function applyReviewThemeChoice(configurationService: IConfiguratio
 			await configurationService.updateValue('workbench.preferredLightColorTheme', REVIEW_LIGHT_THEME, ConfigurationTarget.USER);
 			break;
 	}
+}
+
+// Capture the initial theme once per workbench. An unset preference must not
+// keep following later editor theme changes within this application run.
+const initialDiffThemes = new WeakMap<IWorkbenchThemeService, string>();
+
+export function currentReviewDiffThemeChoice(configurationService: IConfigurationService, themeService: IWorkbenchThemeService, installed: readonly IWorkbenchColorTheme[] = []): ReviewDiffThemeChoice {
+	let initial = initialDiffThemes.get(themeService);
+	if (!initial) {
+		initial = themeService.getColorTheme().settingsId;
+		initialDiffThemes.set(themeService, initial);
+	}
+	const configured = configurationService.getValue<string | null>(REVIEW_DIFF_THEME_SETTING);
+	// Preserve preferences saved by the original Light/Dark selector.
+	const id = configured === 'light' ? REVIEW_LIGHT_THEME : configured === 'dark' ? REVIEW_DARK_THEME : configured || initial;
+	return { id, label: installed.find(theme => theme.settingsId === id)?.label ?? (themeService.getColorTheme().settingsId === id ? themeService.getColorTheme().label : id) };
+}
+
+export async function applyReviewDiffThemeChoice(configurationService: IConfigurationService, choice: ReviewDiffThemeChoice): Promise<ReviewDiffThemeChoice> {
+	await configurationService.updateValue(REVIEW_DIFF_THEME_SETTING, choice.id, ConfigurationTarget.USER);
+	return choice;
+}
+
+export async function pickReviewDiffTheme(configurationService: IConfigurationService, themeService: IWorkbenchThemeService, quickInputService: IQuickInputService): Promise<ReviewDiffThemeChoice> {
+	const themes = await themeService.getColorThemes();
+	const current = currentReviewDiffThemeChoice(configurationService, themeService, themes);
+	const items = themes.map(theme => ({
+		id: theme.settingsId,
+		label: theme.label,
+		description: theme.settingsId === current.id ? 'Current' : undefined,
+	})).sort((a, b) => a.label.localeCompare(b.label));
+	const selected = await quickInputService.pick(items, {
+		title: 'Diff theme',
+		placeHolder: 'Search installed themes for all diffs',
+		activeItem: items.find(item => item.id === current.id),
+	});
+	return selected ? applyReviewDiffThemeChoice(configurationService, { id: selected.id, label: selected.label }) : current;
 }

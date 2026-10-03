@@ -40,6 +40,7 @@ export function SettingsPage({
   );
 
   const [theme, setTheme] = useState(settings.theme);
+  const [diffTheme, setDiffTheme] = useState(settings.diffTheme);
   const [keymap, setKeymap] = useState(settings.keymap);
 
   const [softwareMapEnabled, setSoftwareMapEnabled] = useState(
@@ -177,6 +178,27 @@ export function SettingsPage({
                   void run("theme", () => settings.setTheme(choice), setTheme)
                 }
               />
+            </Row>
+            <Row
+              label="Diff theme"
+              description="Appearance of all diffs, including inline diffs."
+            >
+              <button
+                type="button"
+                className="review-settings-button"
+                aria-label={`Diff theme: ${diffTheme.label}`}
+                aria-haspopup="dialog"
+                disabled={busy !== null}
+                onClick={() =>
+                  void run(
+                    "diffTheme",
+                    () => settings.pickDiffTheme(),
+                    setDiffTheme,
+                  )
+                }
+              >
+                {diffTheme.label}…
+              </button>
             </Row>
             <Row
               label="Keymap"
