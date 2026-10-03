@@ -7,6 +7,7 @@ import { Event } from "../../base/common/event.js";
 import { IServerChannel } from "../../base/parts/ipc/common/ipc.js";
 import type { IWindowsMainService } from "../../platform/windows/electron-main/windows.js";
 import type { ReviewDesktopConnection } from "../common/reviewDesktopBootstrap.js";
+import type { ReviewAnimationCommand, ReviewAnimationCreate } from "../common/reviewProtocol.js";
 import type { ReviewDesktopHost } from "./reviewDesktopHost.js";
 
 export { REVIEW_DESKTOP_CHANNEL } from "../common/reviewDesktopBootstrap.js";
@@ -22,11 +23,28 @@ export class ReviewDesktopChannel implements IServerChannel {
     private readonly windows: IWindowsMainService,
   ) {}
 
-  listen<T>(): Event<T> {
+  listen<T>(context: string, event: string): Event<T> {
+    if (event === "animationEvent") return this.host.animations.eventsFor(this.animationOwner(context)) as Event<T>;
     return Event.None as Event<T>;
   }
 
-  async call<T>(_context: string, command: string, arg?: unknown): Promise<T> {
+  private animationOwner(context: string) {
+    const match = /^window:(\d+)$/.exec(context);
+    const owner = match && this.windows.getWindowById(Number(match[1]))?.win;
+    if (!owner || owner.isDestroyed()) throw new Error("Whiteboard window is unavailable.");
+    return owner;
+  }
+
+  async call<T>(context: string, command: string, arg?: unknown): Promise<T> {
+    if (command.startsWith("animation")) {
+      const owner = this.animationOwner(context);
+      const input = arg as { id: string; command: ReviewAnimationCommand };
+      switch (command) {
+        case "animationCreate": return await this.host.animations.create(owner, arg as ReviewAnimationCreate) as T;
+        case "animationCommand": return await this.host.animations.command(owner, input.id, input.command) as T;
+        case "animationDestroy": return this.host.animations.destroy(owner, input.id) as T;
+      }
+    }
     if (command === "getConnection") {
       const connection: ReviewDesktopConnection = await this.host.whenConnected();
       return connection as T;

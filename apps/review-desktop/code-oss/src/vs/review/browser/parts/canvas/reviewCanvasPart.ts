@@ -89,6 +89,7 @@ import { IReviewApiCatalogService } from "../../../services/reviewApiCatalogServ
 import { IReviewApiSourceService } from "../../../services/reviewApiSourceService.js";
 import { IReviewCanvasEditorTabsService } from "../../../services/reviewCanvasEditorTabsService.js";
 import { IReviewDesktopConnectionService } from "../../../services/reviewDesktopConnectionService.js";
+import { ReviewAnimationService } from "../../../services/reviewAnimationService.js";
 import { ReviewDiffViewService } from "../../../services/reviewDiffViewService.js";
 import {
 	ReviewEmbeddedEditorSelection,
@@ -167,6 +168,7 @@ export class ReviewCanvasEditorPane extends EditorPane {
 	private readonly animationInputLifetime = this._register(new MutableDisposable());
 	private readonly inlineEditors: ReviewEmbeddedEditors;
 	private readonly diffViews: ReviewDiffViewService;
+	private readonly animations: ReviewAnimationService;
 	private readonly sessionTelemetry: ReviewSessionTelemetry;
 
 	constructor(
@@ -215,6 +217,7 @@ export class ReviewCanvasEditorPane extends EditorPane {
 			catalog = this.apiCatalog.reviews;
 			this.sessionTelemetry.catalogChanged(previous, catalog);
 		}));
+		this.animations = this._register(reviewInstantiationService.createInstance(ReviewAnimationService));
 		this.inlineEditors = this._register(reviewInstantiationService.createInstance(ReviewEmbeddedEditors));
 		this.refreshProgress = this._register(new LongRunningOperation(editorProgressService));
 		this.diffViews = this._register(
@@ -454,10 +457,11 @@ export class ReviewCanvasEditorPane extends EditorPane {
 							animations: {
 								inlineEditors: (view) => this.apiSource.canvas(() => view, this.inlineEditors, this.diffViews, false).inlineEditors,
 								openSource: (location, range) => this.apiSource.open(location, range),
-								create: (source) => this.nativeHostService.createAnimation(source),
-								command: (id, command) => this.nativeHostService.commandAnimation(id, command),
-								destroy: (id) => this.nativeHostService.destroyAnimation(id),
-								subscribe: (listener) => this.nativeHostService.onDidAnimationEvent(listener),
+								create: (source) => this.animations.create(source),
+								mount: (handle, container, title) => this.animations.mount(handle, container, title),
+								command: (id, command) => this.animations.command(id, command),
+								destroy: (id) => this.animations.destroy(id),
+								subscribe: (listener) => this.animations.subscribe(listener),
 								autoplay: () => this.configurationService.getValue<boolean>('review.animations.autoplay') !== false,
 								onDidChangeAutoplay: (listener) => this.configurationService.onDidChangeConfiguration(event => {
 									if (event.affectsConfiguration('review.animations.autoplay')) listener(this.configurationService.getValue<boolean>('review.animations.autoplay') !== false);

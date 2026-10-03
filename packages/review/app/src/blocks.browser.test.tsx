@@ -125,8 +125,7 @@ const rendered: Record<
   Exclude<Kind, "call_stack_diff">,
   (container: HTMLElement) => boolean
 > = {
-  animation: (c) =>
-    text(c).includes("A packet moves between services.") && !has(c, "canvas"),
+  animation: (c) => text(c).includes("A packet moves between services."),
   markdown: (c) =>
     c.querySelector("h1")?.textContent === "Order status" &&
     has(c, "a[href*='review-source:']"),

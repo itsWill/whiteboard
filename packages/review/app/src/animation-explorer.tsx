@@ -6,7 +6,13 @@ import {
 import type { AnimationBlock } from "@review/review-api/blocks/animation";
 import type { Snapshot } from "@review/review-api/store";
 import * as stylex from "@stylexjs/stylex";
-import { useCallback, useMemo, useState } from "react";
+import {
+  type ReactNode,
+  type Ref,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 
 import { DiagramHeader } from "./diagram-header";
@@ -24,12 +30,16 @@ export function AnimationExplorer({
   request,
   open,
   onClose,
+  stageRef,
+  children,
 }: {
   node: AnimationBlock;
   snapshot: Snapshot;
-  request: { key: string; image: string };
+  request: { key: string };
   open: boolean;
   onClose(): void;
+  stageRef: Ref<HTMLDivElement>;
+  children: ReactNode;
 }) {
   const session = useReviewSession();
   const { portalTarget } = useDiagramTourShell(open, onClose);
@@ -133,12 +143,8 @@ export function AnimationExplorer({
             title={node.title}
             action={<Button onClick={onClose}>Close</Button>}
           />
-          <div {...stylex.props(styles.stage)}>
-            <img
-              src={request.image}
-              alt={node.description}
-              {...stylex.props(styles.image)}
-            />
+          <div ref={stageRef} {...stylex.props(styles.stage)}>
+            {children}
           </div>
         </DiagramTourOverlay>
       </ReviewLensesProvider>
@@ -149,16 +155,11 @@ export function AnimationExplorer({
 
 const styles = stylex.create({
   stage: {
+    position: "relative",
     flex: 1,
+    minWidth: 0,
     minHeight: 0,
-    display: "grid",
-    placeItems: "center",
+    overflow: "hidden",
     backgroundColor: tokens.diagramCanvasBg,
-  },
-  image: {
-    display: "block",
-    width: "100%",
-    maxHeight: "100%",
-    objectFit: "contain",
   },
 });

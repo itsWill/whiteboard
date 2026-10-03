@@ -352,9 +352,6 @@ export interface ReviewAnimationTheme {
 }
 
 export interface ReviewAnimationCreate extends ReviewAnimationSource {
-  width: number;
-  height: number;
-  pixelRatio: number;
   theme: ReviewAnimationTheme;
 }
 
@@ -366,35 +363,22 @@ export interface ReviewAnimationRegion {
   height: number;
 }
 
+export interface ReviewAnimationHandle {
+  id: string;
+  html: string;
+}
+
+export interface ReviewAnimationMount extends ReviewDisposable {
+  move(container: HTMLElement): void;
+}
+
 export type ReviewAnimationCommand =
   | { type: "play" | "pause" }
-  | { type: "resize"; width: number; height: number }
-  | { type: "theme"; theme: ReviewAnimationTheme }
-  | {
-      type: "input";
-      event: {
-        type:
-          | "mouseMove"
-          | "mouseDown"
-          | "mouseUp"
-          | "mouseWheel"
-          | "keyDown"
-          | "keyUp"
-          | "char";
-        x?: number;
-        y?: number;
-        button?: "left" | "middle" | "right";
-        deltaX?: number;
-        deltaY?: number;
-        keyCode?: string;
-        modifiers?: string[];
-      };
-    };
+  | { type: "theme"; theme: ReviewAnimationTheme };
 
 export type ReviewAnimationEvent = {
   id: string;
 } & (
-  | { type: "frame"; image: string }
   | { type: "selected"; key: string }
   | { type: "regions"; regions: ReviewAnimationRegion[] }
   | { type: "paused" }
@@ -407,7 +391,12 @@ export interface ReviewAnimationBridge {
     location: ReviewApiSourceLocation,
     range: { startLine: number; endLine: number },
   ): Promise<void>;
-  create(source: ReviewAnimationCreate): Promise<string>;
+  create(source: ReviewAnimationCreate): Promise<ReviewAnimationHandle>;
+  mount(
+    handle: ReviewAnimationHandle,
+    container: HTMLElement,
+    title: string,
+  ): ReviewAnimationMount;
   command(id: string, command: ReviewAnimationCommand): Promise<void>;
   destroy(id: string): Promise<void>;
   subscribe(listener: (event: ReviewAnimationEvent) => void): ReviewDisposable;

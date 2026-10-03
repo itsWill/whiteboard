@@ -19,6 +19,7 @@ import { UtilityProcess } from "../../platform/utilityProcess/electron-main/util
 import type { ReviewDesktopConnection } from "../common/reviewDesktopBootstrap.js";
 import { REVIEW_TELEMETRY_SETTING } from "../common/reviewConfigurationDefaults.js";
 import { REVIEW_CRASH_DUMPS_DIRNAME } from "../node/reviewCrashReporter.js";
+import { AnimationHost } from "./animation/animationHost.js";
 import { ReviewCrashDumps } from "./reviewCrashDumps.js";
 import { ReviewCrashTelemetry } from "./reviewCrashTelemetry.js";
 import { ReviewMainErrorTelemetry } from "./reviewMainErrorTelemetry.js";
@@ -34,6 +35,7 @@ import {
  * dependency so it stays testable; this class only supplies the platform.
  */
 export class ReviewDesktopHost extends Disposable {
+  readonly animations = this._register(new AnimationHost());
   private readonly supervisor: ReviewServerSupervisor;
   private terminating = false;
 

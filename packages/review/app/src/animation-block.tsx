@@ -1,12 +1,19 @@
 import {
   type ReviewAnimationCommand,
+  type ReviewAnimationMount,
   type ReviewAnimationRegion,
   type ReviewAnimationTheme,
 } from "@dev.fast/review-protocol";
 import type { AnimationBlock as AnimationSource } from "@review/review-api/blocks/animation";
 import type { Snapshot } from "@review/review-api/store";
 import * as stylex from "@stylexjs/stylex";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { AnimationExplorer } from "./animation-explorer";
 import { animationPlayback } from "./animation-playback";
@@ -28,15 +35,18 @@ export function AnimationBlock({
   const bridge = snapshot.shared ? undefined : host.animations;
   const latest = useRef({ node, snapshot });
   latest.current = { node, snapshot };
-  const surface = useRef<HTMLCanvasElement>(null);
+  const surface = useRef<HTMLDivElement>(null);
+
+  const [explorerStage, setExplorerStage] = useState<HTMLDivElement | null>(
+    null,
+  );
 
   const controls = useRef<{
     play(): void;
     pause(): void;
     restart(): void;
-    input(
-      event: Extract<ReviewAnimationCommand, { type: "input" }>["event"],
-    ): void;
+    explore(key: string): void;
+    move(container: HTMLElement): void;
   } | null>(null);
 
   const [running, setRunning] = useState<{
@@ -51,48 +61,56 @@ export function AnimationBlock({
   const [regions, setRegions] = useState<ReviewAnimationRegion[]>([]);
 
   const [explorer, setExplorer] = useState<{
-    request: { key: string; image: string };
+    request: { key: string };
     open: boolean;
   }>();
 
-  const closeExplorer = useCallback(
-    () => setExplorer((value) => value && { ...value, open: false }),
-    [],
-  );
+  const closeExplorer = useCallback(() => {
+    setExplorer((value) => value && { ...value, open: false });
+  }, []);
 
   useEffect(() => {
-    const canvas = surface.current;
+    const stage = surface.current;
 
-    if (!bridge || !canvas) return;
-    let id: string | undefined;
+    if (!bridge || !stage) return;
+
+    type Guest = { id: string; mounted: ReviewAnimationMount };
+
+    let guest: Guest | undefined;
+    let retained: Guest | undefined;
+    let target: HTMLElement = stage;
     let pending: Promise<void> | undefined;
     let disposed = false;
     let generation = 0;
     let wantsPlay = false;
+    let failed = false;
 
-    let size = {
-      width: Math.min(2048, Math.max(1, Math.round(canvas.clientWidth))),
-      height: latest.current.node.height,
+    const destroy = (value: Guest | undefined) => {
+      if (!value) return;
+      void bridge.destroy(value.id).catch(() => {});
+      value.mounted.dispose();
     };
 
     const report = (cause: unknown) => {
-      if (disposed) return;
+      if (disposed || failed) return;
+      failed = true;
+      setRegions([]);
       setError(cause instanceof Error ? cause.message : String(cause));
       player.pause();
     };
 
     const command = (value: ReviewAnimationCommand) => {
-      const target = id;
+      const current = guest;
       const revision = generation;
 
-      if (target)
-        void bridge.command(target, value).catch((cause) => {
-          if (revision === generation && target === id) report(cause);
+      if (current)
+        void bridge.command(current.id, value).catch((cause) => {
+          if (revision === generation && current === guest) report(cause);
         });
     };
 
     const theme = (): ReviewAnimationTheme => {
-      const style = getComputedStyle(canvas);
+      const style = getComputedStyle(stage);
 
       const color = (name: string, fallback: string) =>
         style.getPropertyValue(name).trim() || fallback;
@@ -108,65 +126,69 @@ export function AnimationBlock({
       };
     };
 
-    const start = async () => {
+    const start = () => {
       wantsPlay = true;
       setSelected(undefined);
 
-      if (!id && !pending) {
-        const revision = latest.current;
-        const current = ++generation;
-        setRunning(revision);
-        setError(undefined);
-        setLoading(true);
-        pending = (async () => {
-          const created = await bridge.create({
-            html: revision.node.html,
-            css: revision.node.css,
-            js: revision.node.js,
-            keys: revision.node.bindings.map((binding) => binding.key),
-            ...size,
-            pixelRatio: Math.min(3, Math.max(1, window.devicePixelRatio)),
-            theme: theme(),
+      if (pending) return;
+      const revision = generation;
+      setLoading(true);
+      pending = (async () => {
+        try {
+          if (!guest) {
+            const source = latest.current;
+            setRunning(source);
+
+            const created = await bridge.create({
+              html: source.node.html,
+              css: source.node.css,
+              js: source.node.js,
+              keys: source.node.bindings.map((binding) => binding.key),
+              theme: theme(),
+            });
+
+            if (disposed) {
+              await bridge.destroy(created.id);
+
+              return;
+            }
+
+            try {
+              guest = {
+                id: created.id,
+                mounted: bridge.mount(
+                  created,
+                  target,
+                  `${source.node.title}. ${source.node.description}`,
+                ),
+              };
+            } catch (cause) {
+              void bridge.destroy(created.id).catch(() => {});
+              throw cause;
+            }
+          }
+
+          await bridge.command(guest.id, {
+            type: wantsPlay ? "play" : "pause",
           });
 
-          if (disposed || current !== generation) {
-            await bridge.destroy(created);
+          if (disposed) return;
+          setPlaying(wantsPlay);
+          // The replacement is ready. Until now the old, paused webview stayed visible.
+          destroy(retained);
+          retained = undefined;
+        } catch (cause) {
+          if (revision === generation) report(cause);
+        } finally {
+          pending = undefined;
 
-            return;
-          }
-
-          id = created;
-        })().finally(() => {
-          if (current === generation) {
-            pending = undefined;
-
-            if (!disposed) setLoading(false);
-          }
-        });
-      }
-
-      const startedGeneration = generation;
-
-      try {
-        await pending;
-
-        if (startedGeneration !== generation) return;
-
-        if (!disposed && id && wantsPlay) {
-          await bridge.command(id, { type: "play" });
-
-          if (!disposed && startedGeneration === generation && wantsPlay)
-            setPlaying(true);
+          if (!disposed) setLoading(false);
         }
-      } catch (cause) {
-        if (startedGeneration === generation) report(cause);
-      }
+      })();
     };
 
     const player = animationPlayback.register(crypto.randomUUID(), {
-      start: () => {
-        void start();
-      },
+      start,
       stop: () => {
         wantsPlay = false;
         setPlaying(false);
@@ -174,68 +196,49 @@ export function AnimationBlock({
       },
     });
 
+    const explore = (key: string) => {
+      if (!guest || failed || pending) return;
+      player.pause();
+      setSelected(key);
+      setExplorer({ request: { key }, open: true });
+    };
+
     controls.current = {
       play: player.play,
       pause: player.pause,
       restart: () => {
+        if (pending) return;
         player.pause();
         generation++;
 
-        if (id) void bridge.destroy(id).catch(() => {});
-        id = undefined;
-        pending = undefined;
-        setError(undefined);
-        setRegions([]);
-        setExplorer(undefined);
-        player.play();
-      },
-      input: (event) => command({ type: "input", event }),
-    };
-    let drawing = false;
-    let nextImage: string | undefined;
-
-    const draw = () => {
-      if (drawing || !nextImage || disposed) return;
-      drawing = true;
-      const image = new Image();
-      image.onload = () => {
-        if (!disposed) {
-          if (canvas.width !== image.width || canvas.height !== image.height) {
-            canvas.width = image.width;
-            canvas.height = image.height;
-          }
-
-          canvas.getContext("2d")?.drawImage(image, 0, 0);
+        if (failed) {
+          destroy(guest);
+        } else {
+          destroy(retained);
+          retained = guest;
         }
 
-        drawing = false;
-        draw();
-      };
-
-      image.onerror = () => {
-        drawing = false;
-      };
-
-      image.src = nextImage;
-      nextImage = undefined;
+        guest = undefined;
+        failed = false;
+        setRegions([]);
+        setExplorer(undefined);
+        setError(undefined);
+        player.play();
+      },
+      explore,
+      move: (container) => {
+        target = container;
+        retained?.mounted.move(container);
+        guest?.mounted.move(container);
+      },
     };
 
     const subscription = bridge.subscribe((event) => {
-      if (disposed || event.id !== id) return;
+      if (disposed || event.id !== guest?.id) return;
 
-      if (event.type === "frame") {
-        nextImage = event.image;
-        draw();
-      } else if (event.type === "regions") {
-        setRegions(event.regions);
-      } else if (event.type === "selected") {
-        player.pause();
-        setSelected(event.key);
-        setExplorer({
-          request: { key: event.key, image: canvas.toDataURL() },
-          open: true,
-        });
-      } else if (event.type === "paused") player.pause();
+      if (event.type === "regions") setRegions(event.regions);
+      else if (event.type === "selected") explore(event.key);
+      else if (event.type === "paused") player.pause();
       else if (event.type === "error") report(event.message);
     });
 
@@ -251,7 +254,7 @@ export function AnimationBlock({
 
     const visibility = () =>
       player.visible(
-        intersecting && !document.hidden && canvas.getClientRects().length > 0,
+        intersecting && !document.hidden && stage.getClientRects().length > 0,
       );
 
     const observer = new IntersectionObserver(
@@ -262,24 +265,10 @@ export function AnimationBlock({
       { threshold: 0.1 },
     );
 
-    observer.observe(canvas);
+    observer.observe(stage);
     document.addEventListener("visibilitychange", visibility);
-
-    const resize = new ResizeObserver(() => {
-      const next = {
-        width: Math.min(2048, Math.max(1, Math.round(canvas.clientWidth))),
-        height: Math.max(1, Math.round(canvas.clientHeight)),
-      };
-
-      if (next.width !== size.width || next.height !== size.height) {
-        size = next;
-        command({ type: "resize", ...size });
-      }
-
-      visibility();
-    });
-
-    resize.observe(canvas);
+    const resize = new ResizeObserver(visibility);
+    resize.observe(stage);
 
     const themeSubscription = host.onDidChangeTheme(() =>
       requestAnimationFrame(() => {
@@ -299,12 +288,33 @@ export function AnimationBlock({
       resize.disconnect();
       motion.removeEventListener("change", updateAutoplay);
       document.removeEventListener("visibilitychange", visibility);
-
-      if (id) void bridge.destroy(id);
+      destroy(guest);
+      destroy(retained);
     };
   }, [bridge, host, node.id]);
 
+  useLayoutEffect(() => {
+    const target = explorer?.open ? explorerStage : surface.current;
+
+    if (target) controls.current?.move(target);
+  }, [explorer?.open, explorerStage]);
+
   const current = running?.node ?? node;
+
+  const codeRegions = regions.map((region) => (
+    <div
+      key={region.key}
+      {...stylex.props(
+        styles.codeAnchor(region.x, region.y, region.width, region.height),
+      )}
+    >
+      <DiagramCodeRegion
+        label={region.key}
+        selected={selected === region.key}
+        onClick={() => controls.current?.explore(region.key)}
+      />
+    </div>
+  ));
 
   return (
     <figure {...stylex.props(styles.figure)} aria-label={current.title}>
@@ -326,105 +336,11 @@ export function AnimationBlock({
       />
       {bridge && (
         <div {...stylex.props(styles.stage)}>
-          <canvas
+          <div
             ref={surface}
             {...stylex.props(styles.surface(current.height))}
-            tabIndex={0}
-            aria-label={`${current.title}. ${current.description}`}
-            onPointerDown={(event) => {
-              event.currentTarget.focus();
-              event.currentTarget.setPointerCapture(event.pointerId);
-              const rect = event.currentTarget.getBoundingClientRect();
-              controls.current?.input({
-                type: "mouseDown",
-                x: event.clientX - rect.left,
-                y: event.clientY - rect.top,
-                button: "left",
-              });
-            }}
-            onPointerUp={(event) => {
-              const rect = event.currentTarget.getBoundingClientRect();
-              controls.current?.input({
-                type: "mouseUp",
-                x: event.clientX - rect.left,
-                y: event.clientY - rect.top,
-                button: "left",
-              });
-            }}
-            onPointerMove={(event) => {
-              const rect = event.currentTarget.getBoundingClientRect();
-              controls.current?.input({
-                type: "mouseMove",
-                x: event.clientX - rect.left,
-                y: event.clientY - rect.top,
-              });
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Tab") return;
-              event.preventDefault();
-              controls.current?.input({
-                type: "keyDown",
-                keyCode: event.key,
-                modifiers: [
-                  event.shiftKey && "shift",
-                  event.ctrlKey && "control",
-                  event.altKey && "alt",
-                  event.metaKey && "meta",
-                ].filter((value): value is string => Boolean(value)),
-              });
-
-              if (event.key.length === 1 && !event.ctrlKey && !event.metaKey)
-                controls.current?.input({ type: "char", keyCode: event.key });
-            }}
-            onKeyUp={(event) => {
-              if (event.key !== "Tab")
-                controls.current?.input({ type: "keyUp", keyCode: event.key });
-            }}
           />
-          {regions.map((region) => {
-            const binding = current.bindings.find(
-              (item) => item.key === region.key,
-            );
-
-            const canvas = surface.current;
-
-            if (
-              !binding ||
-              !canvas ||
-              region.x + region.width < 0 ||
-              region.y + region.height < 0 ||
-              region.x > canvas.clientWidth ||
-              region.y > canvas.clientHeight
-            )
-              return null;
-
-            return (
-              <div
-                key={region.key}
-                {...stylex.props(
-                  styles.codeAnchor(
-                    region.x,
-                    region.y,
-                    region.width,
-                    region.height,
-                  ),
-                )}
-              >
-                <DiagramCodeRegion
-                  label={region.key}
-                  selected={selected === region.key}
-                  onClick={() => {
-                    controls.current?.pause();
-                    setSelected(region.key);
-                    setExplorer({
-                      request: { key: region.key, image: canvas.toDataURL() },
-                      open: true,
-                    });
-                  }}
-                />
-              </div>
-            );
-          })}
+          {!explorer?.open && codeRegions}
         </div>
       )}
       <p {...stylex.props(styles.description)}>{current.description}</p>
@@ -440,7 +356,10 @@ export function AnimationBlock({
           request={explorer.request}
           open={explorer.open}
           onClose={closeExplorer}
-        />
+          stageRef={setExplorerStage}
+        >
+          {codeRegions}
+        </AnimationExplorer>
       )}
     </figure>
   );
@@ -469,6 +388,7 @@ const styles = stylex.create({
     zIndex: 1,
   }),
   surface: (height: number) => ({
+    position: "relative",
     display: "block",
     width: "100%",
     height,
@@ -481,12 +401,5 @@ const styles = stylex.create({
     padding: "8px 16px",
     color: tokens.inkMuted,
     fontSize: fontSize.small,
-  },
-  links: {
-    display: "flex",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: 8,
-    padding: "8px 16px",
   },
 });
